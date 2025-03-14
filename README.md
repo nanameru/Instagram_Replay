@@ -13,3 +13,4 @@ npm install
 ```bash
 npm run lint
 ```
+# Additional documentation
