@@ -17,10 +17,11 @@ export async function GET() {
     }
     
     // Instagram Graph API base URL
-    const INSTAGRAM_API_BASE = 'https://graph.instagram.com';
+    const INSTAGRAM_GRAPH_API_BASE = 'https://graph.facebook.com';
+    const API_VERSION = 'v18.0';
     
     // Endpoint for profile information
-    const endpoint = `${INSTAGRAM_API_BASE}/me`;
+    const endpoint = `${INSTAGRAM_GRAPH_API_BASE}/${API_VERSION}/me`;
     
     // Parameters for the API request
     const params = new URLSearchParams({

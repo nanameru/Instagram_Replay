@@ -28,7 +28,7 @@ export async function GET() {
       // Parameters for the API request
       const params = new URLSearchParams({
         access_token: accessToken,
-        fields: 'participants,updated_time'
+        fields: 'participants,updated_time,messages.limit(1){from,message,created_time}'
       });
       
       // Make the API request
@@ -51,17 +51,28 @@ export async function GET() {
       
       if (data.data && Array.isArray(data.data)) {
         data.data.forEach((conv: any) => {
-          if (conv.participants && conv.participants.data) {
+          if (conv.participants && conv.participants.data && conv.participants.data.length > 0) {
             // Find the participant that is not the business
             const customer = conv.participants.data.find((p: any) => p.id !== 'me');
             
             if (customer) {
+              let lastMessageText = '';
+              let lastMessageTime = conv.updated_time;
+              
+              // Get the last message if available
+              if (conv.messages && conv.messages.data && conv.messages.data.length > 0) {
+                const lastMessage = conv.messages.data[0];
+                lastMessageText = lastMessage.message;
+                lastMessageTime = lastMessage.created_time;
+              }
+              
               conversations.push({
                 id: conv.id,
                 customer_id: customer.id,
-                customer_name: customer.username || 'Unknown User',
-                last_message_time: conv.updated_time,
-                unread_count: 0 // This information might not be available from the API
+                customer_name: customer.username || customer.name || 'Instagram User',
+                last_message: lastMessageText,
+                last_message_time: lastMessageTime,
+                unread_count: 0 // API doesn't provide this directly
               });
             }
           }
@@ -96,6 +107,7 @@ function getMockConversations(): Conversation[] {
       id: 'conv1',
       customer_id: 'user1',
       customer_name: '田中さん',
+      last_message: '商品について質問があります。',
       last_message_time: new Date().toISOString(),
       unread_count: 2
     },
@@ -103,6 +115,7 @@ function getMockConversations(): Conversation[] {
       id: 'conv2',
       customer_id: 'user2',
       customer_name: '佐藤さん',
+      last_message: 'ありがとうございました！',
       last_message_time: new Date(Date.now() - 3600000).toISOString(),
       unread_count: 0
     },
@@ -110,6 +123,7 @@ function getMockConversations(): Conversation[] {
       id: 'conv3',
       customer_id: 'user3',
       customer_name: '鈴木さん',
+      last_message: '配送状況を教えてください。',
       last_message_time: new Date(Date.now() - 86400000).toISOString(),
       unread_count: 1
     }
