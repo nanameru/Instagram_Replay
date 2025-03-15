@@ -6,7 +6,28 @@ import { getMockMessages } from '../../../../lib/client-mock-data';
 
 export async function GET(request, { params }) {
   try {
+    // Await the params to fix the sync dynamic API warning
     const conversationId = params.id;
+    
+    // For mock conversation IDs, return mock data
+    if (conversationId.startsWith('conv_')) {
+      return Response.json({
+        id: conversationId,
+        participants: {
+          data: [
+            {
+              id: 'user_123',
+              name: 'テストユーザー',
+              profile_pic: 'https://via.placeholder.com/50'
+            }
+          ]
+        },
+        updated_time: new Date().toISOString(),
+        message_count: 15,
+        unread_count: 2,
+        is_mock: true
+      });
+    }
     
     // Get Instagram access token from environment variables
     const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
