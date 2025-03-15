@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { fetchMessages, fetchLatestAIResponse, generateAIResponse } from '../../lib/api-client';
+import { fetchMessages, fetchLatestAIResponse, generateAIResponse, sendMessage } from '../../lib/api-client';
 import { Message, AIResponse } from '../../types';
 
 interface ConversationViewProps {
@@ -14,17 +14,25 @@ export default function ConversationView({ conversationId }: ConversationViewPro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMockData, setIsMockData] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [newMessage, setNewMessage] = useState('');
 
   useEffect(() => {
     async function loadMessages() {
       try {
         setLoading(true);
-        const data = await fetchMessages(conversationId);
-        setMessages(data);
+        const response = await fetch(`/api/instagram/conversations/${conversationId}`);
         
-        // Check if we're using mock data
-        if (data && data.length > 0 && 'is_mock' in data[0]) {
-          setIsMockData(data[0].is_mock as boolean);
+        if (!response.ok) {
+          throw new Error(`API error: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        setMessages(data.messages || []);
+        setIsMockData(data.is_mock || false);
+        
+        if (data.error) {
+          console.warn('API warning:', data.error);
         }
         
         // Get the latest AI response
@@ -35,6 +43,11 @@ export default function ConversationView({ conversationId }: ConversationViewPro
       } catch (err) {
         console.error('Error loading messages:', err);
         setError('メッセージの読み込み中にエラーが発生しました。');
+        
+        // Fallback to client-side mock data
+        const mockData = await fetchMessages(conversationId);
+        setMessages(mockData);
+        setIsMockData(true);
       } finally {
         setLoading(false);
       }
@@ -53,6 +66,47 @@ export default function ConversationView({ conversationId }: ConversationViewPro
       console.error('Error generating AI response:', err);
       setError('AI応答の生成中にエラーが発生しました。');
     }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !conversationId) return;
+    
+    try {
+      setSendingMessage(true);
+      
+      // Get the recipient ID from the first message
+      const recipientId = messages.length > 0 && messages[0].is_from_instagram 
+        ? messages[0].sender_id 
+        : conversationId;
+      
+      await sendMessage(conversationId, recipientId, newMessage);
+      
+      // Add the message to the local state
+      const newMsg: Message = {
+        id: `local-${Date.now()}`,
+        sender_id: 'business',
+        recipient_id: recipientId,
+        text: newMessage,
+        timestamp: new Date().toISOString(),
+        is_from_instagram: false
+      };
+      
+      setMessages([...messages, newMsg]);
+      setNewMessage('');
+      setAIResponse(null);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('メッセージの送信中にエラーが発生しました。');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const handleSendAIResponse = async () => {
+    if (!aiResponse) return;
+    
+    setNewMessage(aiResponse.suggested_response);
+    setAIResponse(null);
   };
 
   if (loading) {
@@ -135,12 +189,40 @@ export default function ConversationView({ conversationId }: ConversationViewPro
             <p>{aiResponse.suggested_response}</p>
           </div>
           <div className="mt-2 flex justify-end">
-            <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
-              この応答を送信
+            <button 
+              onClick={handleSendAIResponse}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+            >
+              この応答を使用
             </button>
           </div>
         </div>
       )}
+      
+      <div className="border-t p-4">
+        <div className="flex">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="メッセージを入力..."
+            className="flex-1 p-2 border rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={sendingMessage || !newMessage.trim()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 transition disabled:opacity-50"
+          >
+            {sendingMessage ? '送信中...' : '送信'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

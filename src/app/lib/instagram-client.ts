@@ -1,12 +1,15 @@
+/**
+ * Instagram API client for frontend use
+ * This file contains functions to interact with the Instagram API through our server-side API routes
+ */
+
 import { Customer, Conversation, Message } from '../types';
 
 /**
  * Fetch Instagram profile information
- * @returns Customer object or null if error
  */
-export async function fetchInstagramProfile(accessToken: string): Promise<Customer | null> {
+export async function fetchInstagramProfile(userId: string): Promise<Customer | null> {
   try {
-    // Use server-side API route to protect access token
     const response = await fetch('/api/instagram/profile');
     
     if (!response.ok) {
@@ -15,36 +18,28 @@ export async function fetchInstagramProfile(accessToken: string): Promise<Custom
     
     const data = await response.json();
     
-    if (data.is_mock) {
-      console.warn('Using mock profile data due to API limitations');
+    if (data.profile) {
+      // Transform the profile data to match our Customer type
+      return {
+        id: data.profile.id,
+        name: data.profile.name,
+        username: data.profile.username,
+        profile_picture_url: data.profile.profile_picture_url
+      };
     }
     
-    if (!data.profile) {
-      return null;
-    }
-    
-    // Transform to Customer type
-    const customer: Customer = {
-      id: data.profile.id,
-      name: data.profile.name || 'Instagram User',
-      username: data.profile.username,
-      profile_picture_url: data.profile.profile_picture_url
-    };
-    
-    return customer;
+    return null;
   } catch (error) {
     console.error('Error fetching Instagram profile:', error);
-    return null;
+    throw error;
   }
 }
 
 /**
  * Fetch Instagram conversations
- * @returns Array of Conversation objects
  */
-export async function fetchInstagramConversations(accessToken: string): Promise<Conversation[]> {
+export async function fetchInstagramConversations(userId: string): Promise<Conversation[]> {
   try {
-    // Use server-side API route to protect access token
     const response = await fetch('/api/instagram/conversations');
     
     if (!response.ok) {
@@ -53,25 +48,23 @@ export async function fetchInstagramConversations(accessToken: string): Promise<
     
     const data = await response.json();
     
-    if (data.is_mock) {
-      console.warn('Using mock conversation data due to API limitations');
+    if (data.conversations && Array.isArray(data.conversations)) {
+      return data.conversations;
     }
     
-    return data.conversations || [];
+    return [];
   } catch (error) {
     console.error('Error fetching Instagram conversations:', error);
-    return [];
+    throw error;
   }
 }
 
 /**
  * Fetch Instagram messages
- * @returns Array of Message objects
  */
-export async function fetchInstagramMessages(accessToken: string): Promise<Message[]> {
+export async function fetchInstagramMessages(conversationId: string): Promise<Message[]> {
   try {
-    // Use server-side API route to protect access token
-    const response = await fetch('/api/instagram/messages');
+    const response = await fetch(`/api/instagram/messages`);
     
     if (!response.ok) {
       throw new Error(`API error: ${response.statusText}`);
@@ -79,26 +72,22 @@ export async function fetchInstagramMessages(accessToken: string): Promise<Messa
     
     const data = await response.json();
     
-    if (data.is_mock) {
-      console.warn('Using mock message data due to API limitations');
+    if (data.messages && Array.isArray(data.messages)) {
+      return data.messages;
     }
     
-    return data.messages || [];
+    return [];
   } catch (error) {
     console.error('Error fetching Instagram messages:', error);
-    return [];
+    throw error;
   }
 }
 
 /**
  * Send a message to an Instagram user
- * @param recipientId ID of the recipient
- * @param message Message text to send
- * @returns Response from the API
  */
 export async function sendInstagramMessage(recipientId: string, message: string): Promise<any> {
   try {
-    // Use server-side API route to protect access token
     const response = await fetch('/api/instagram/send-message', {
       method: 'POST',
       headers: {

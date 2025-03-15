@@ -2,28 +2,33 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { fetchConversations } from '../../lib/api-client';
-import { Conversation } from '../../types';
+import { fetchCustomers } from '../../lib/api-client';
+import { Customer } from '../../types';
 
-export default function ConversationList() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+export default function CustomerList() {
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMockData, setIsMockData] = useState(false);
 
   useEffect(() => {
-    async function loadConversations() {
+    async function loadCustomers() {
       try {
         setLoading(true);
-        const response = await fetch('/api/instagram/conversations');
+        const response = await fetch('/api/instagram/profile');
         
         if (!response.ok) {
           throw new Error(`API error: ${response.statusText}`);
         }
         
         const data = await response.json();
-        setConversations(data.conversations || []);
-        setIsMockData(data.is_mock || false);
+        
+        if (data.profile) {
+          setCustomers([data.profile]);
+          setIsMockData(data.is_mock || false);
+        } else {
+          setCustomers([]);
+        }
         
         if (data.error) {
           console.warn('API warning:', data.error);
@@ -31,19 +36,19 @@ export default function ConversationList() {
         
         setError(null);
       } catch (err) {
-        console.error('Error loading conversations:', err);
-        setError('会話の読み込み中にエラーが発生しました。');
+        console.error('Error loading customers:', err);
+        setError('顧客の読み込み中にエラーが発生しました。');
         
         // Fallback to client-side mock data
-        const mockData = await fetchConversations();
-        setConversations(mockData);
+        const mockData = await fetchCustomers();
+        setCustomers(mockData);
         setIsMockData(true);
       } finally {
         setLoading(false);
       }
     }
 
-    loadConversations();
+    loadCustomers();
   }, []);
 
   if (loading) {
@@ -83,37 +88,29 @@ export default function ConversationList() {
         </div>
       )}
       
-      {conversations.length === 0 ? (
-        <div className="p-4 text-center text-gray-500">会話がありません</div>
+      {customers.length === 0 ? (
+        <div className="p-4 text-center text-gray-500">顧客がありません</div>
       ) : (
-        conversations.map((conversation) => (
+        customers.map((customer) => (
           <Link 
-            href={`/conversations/${conversation.id}`} 
-            key={conversation.id}
+            href={`/customers/${customer.id}`} 
+            key={customer.id}
             className="block p-4 hover:bg-gray-50 transition"
           >
-            <div className="flex justify-between items-center">
+            <div className="flex items-center">
+              {customer.profile_picture_url && (
+                <div className="mr-3">
+                  <img 
+                    src={customer.profile_picture_url} 
+                    alt={customer.name} 
+                    className="w-10 h-10 rounded-full"
+                  />
+                </div>
+              )}
               <div>
-                <h3 className="font-medium">{conversation.customer_name}</h3>
-                <p className="text-sm text-gray-500 truncate max-w-xs">
-                  {conversation.last_message || '新しい会話'}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500">
-                  {conversation.last_message_time && 
-                    new Date(conversation.last_message_time).toLocaleString('ja-JP', {
-                      month: 'numeric',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })
-                  }
-                </p>
-                {conversation.unread_count > 0 && (
-                  <span className="inline-flex items-center justify-center w-5 h-5 bg-blue-600 text-white text-xs rounded-full">
-                    {conversation.unread_count}
-                  </span>
+                <h3 className="font-medium">{customer.name}</h3>
+                {customer.username && (
+                  <p className="text-sm text-gray-500">@{customer.username}</p>
                 )}
               </div>
             </div>
