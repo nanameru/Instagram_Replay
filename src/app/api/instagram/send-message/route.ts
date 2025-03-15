@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Parse the request body
+    // Parse request body
     const body = await request.json();
     const { recipient_id, message } = body;
     
@@ -42,35 +42,42 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          recipient: {
-            id: recipient_id,
-          },
-          message: {
-            text: message,
-          },
-          access_token: accessToken,
+          recipient: { id: recipient_id },
+          message: { text: message },
+          access_token: accessToken
         }),
       });
       
+      const data = await response.json();
+      
+      // Check for specific permission error
+      if (data.error && (data.error.code === 298 || data.error.code === 10)) {
+        console.error('Instagram API permission error:', data.error.message);
+        return NextResponse.json({ 
+          success: false,
+          is_mock: true,
+          error: `Permission error: ${data.error.message}`
+        });
+      }
+      
       if (!response.ok) {
         console.error(`Instagram API error: ${response.statusText}`);
-        // Return mock success response if API fails
         return NextResponse.json({ 
-          success: true, 
-          message: 'Message sent (mock)',
+          success: false,
           is_mock: true,
           error: `Instagram API error: ${response.statusText}`
         });
       }
       
-      const data = await response.json();
-      return NextResponse.json({ ...data, is_mock: false });
+      return NextResponse.json({ 
+        success: true,
+        message_id: data.message_id,
+        is_mock: false
+      });
     } catch (apiError) {
       console.error('Instagram API request failed:', apiError);
-      // Return mock success response if API request fails
       return NextResponse.json({ 
-        success: true, 
-        message: 'Message sent (mock)',
+        success: false,
         is_mock: true,
         error: apiError instanceof Error ? apiError.message : 'Unknown Instagram API error'
       });
