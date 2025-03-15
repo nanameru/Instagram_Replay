@@ -2,7 +2,7 @@
  * API route for checking Instagram API status
  */
 
-import { getTokenInfo, hasReadMailboxPermission } from '../../../lib/token-manager';
+import { getTokenInfo, hasReadMailboxPermission } from '../../../lib/token-manager.js';
 
 export async function GET(request) {
   try {
