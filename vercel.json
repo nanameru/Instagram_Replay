@@ -1,5 +1,10 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "env": {
+    "INSTAGRAM_ACCESS_TOKEN": "",
+    "INSTAGRAM_APP_TOKEN": "",
+    "OPENAI_API_KEY": ""
+  }
 }
