@@ -2,7 +2,7 @@
  * API route for fetching historical Instagram messages with pagination
  */
 
-import { getMockMessages } from '../../../lib/client-mock-data';
+import { getMockMessages } from '../../../lib/client-mock-data.ts';
 import { getValidToken, hasReadMailboxPermission } from '../../../lib/token-manager';
 
 export async function GET(request) {
