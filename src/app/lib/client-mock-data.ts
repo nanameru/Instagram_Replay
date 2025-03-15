@@ -14,7 +14,13 @@ export function getMockMessages(conversationId: string, count: number = 20) {
   const seed = conversationId.replace(/\D/g, '') || '1001';
   const seedNum = parseInt(seed, 10);
   
-  const messages = [];
+  const messages: Array<{
+    id: string;
+    from: { id: string; name: string };
+    message: string;
+    created_time: string;
+  }> = [];
+  
   const users = [
     { id: 'user_123', name: 'テストユーザー' },
     { id: 'page_456', name: 'インスタグラムページ' }
@@ -43,7 +49,20 @@ export function getMockMessages(conversationId: string, count: number = 20) {
  * @returns {Array} Array of mock conversation objects
  */
 export function getMockConversations(count: number = 5) {
-  const conversations = [];
+  const conversations: Array<{
+    id: string;
+    participants: {
+      data: Array<{
+        id: string;
+        name: string;
+        profile_pic: string;
+      }>;
+    };
+    updated_time: string;
+    message_count: number;
+    unread_count: number;
+    link: string;
+  }> = [];
   
   for (let i = 0; i < count; i++) {
     const conversationId = `conv_${1001 + i}`;
