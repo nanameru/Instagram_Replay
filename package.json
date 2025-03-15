@@ -28,6 +28,7 @@
     "dotenv": "^16.4.7",
     "eslint": "^9",
     "eslint-config-next": "15.2.2",
+    "node-fetch": "^3.3.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
