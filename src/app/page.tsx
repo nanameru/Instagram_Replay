@@ -1,103 +1,132 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import ConversationList from './components/conversations/ConversationList';
+import ConversationView from './components/conversations/ConversationView';
+import { Conversation } from './types';
+import GenerateMockDataButton from './components/GenerateMockDataButton';
+import { fetchConversations, fetchConversation } from './lib/api-client';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [mockDataGenerated, setMockDataGenerated] = useState(false);
+  
+  const searchParams = useSearchParams();
+  const conversationId = searchParams?.get('conversation');
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  // Check if mock data has been generated
+  useEffect(() => {
+    try {
+      const hasGeneratedData = localStorage.getItem('mockDataGenerated') === 'true';
+      if (hasGeneratedData) {
+        setMockDataGenerated(true);
+      }
+    } catch (error) {
+      console.error('Error checking localStorage:', error);
+    }
+  }, []);
+
+  // Load conversations
+  useEffect(() => {
+    async function loadConversations() {
+      try {
+        setLoading(true);
+        const data = await fetchConversations();
+        setConversations(data);
+        
+        // If conversationId is provided in URL, select that conversation
+        if (conversationId) {
+          const conversation = await fetchConversation(conversationId);
+          if (conversation) {
+            setSelectedConversation(conversation);
+          }
+        } else if (data.length > 0) {
+          // Otherwise select the first conversation
+          setSelectedConversation(data[0]);
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading conversations:', error);
+        setError('Failed to load conversations');
+        setLoading(false);
+      }
+    }
+
+    loadConversations();
+  }, [conversationId]);
+
+  const handleSelectConversation = (conversation: Conversation) => {
+    setSelectedConversation(conversation);
+  };
+
+  const handleMockDataSuccess = () => {
+    setMockDataGenerated(true);
+  };
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Instagram DM Dashboard</h1>
+        <div className="flex space-x-4">
+          <Link 
+            href="/customers" 
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            View Customers
+          </Link>
+          <Link 
+            href="/settings" 
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
           >
-            Read our docs
-          </a>
+            Settings
+          </Link>
+          <GenerateMockDataButton onSuccess={handleMockDataSuccess} />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <p className="text-gray-500">Loading conversations...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+          <p>{error}</p>
+        </div>
+      ) : conversations.length === 0 ? (
+        <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4">
+          <p className="font-bold">No conversations found</p>
+          <p>
+            {!mockDataGenerated 
+              ? 'Generate mock data to get started' 
+              : 'No conversations available. Try generating more mock data.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-1 bg-white p-4 rounded-lg border border-gray-200 overflow-auto">
+            <ConversationList
+              conversations={conversations}
+              onSelectConversation={handleSelectConversation}
+              selectedConversationId={selectedConversation?.id}
+            />
+          </div>
+          <div className="md:col-span-2 bg-white p-4 rounded-lg border border-gray-200 overflow-auto">
+            {selectedConversation ? (
+              <ConversationView conversation={selectedConversation} />
+            ) : (
+              <div className="flex items-center justify-center h-64 text-gray-500">
+                Select a conversation to view
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
