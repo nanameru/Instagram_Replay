@@ -1,18 +1,10 @@
-/**
- * Instagram API client functions
- * This file contains functions for interacting with the Instagram Graph API
- */
-
 import { Customer, Conversation, Message } from '../types';
-
-// Instagram Graph API base URL
-const INSTAGRAM_GRAPH_API_BASE = 'https://graph.facebook.com';
-const API_VERSION = 'v18.0';
 
 /**
  * Fetch Instagram profile information
+ * @returns Customer object or null if error
  */
-export async function fetchInstagramProfile(userId: string): Promise<Customer | null> {
+export async function fetchInstagramProfile(accessToken: string): Promise<Customer | null> {
   try {
     // Use server-side API route to protect access token
     const response = await fetch('/api/instagram/profile');
@@ -32,12 +24,14 @@ export async function fetchInstagramProfile(userId: string): Promise<Customer | 
     }
     
     // Transform to Customer type
-    return {
+    const customer: Customer = {
       id: data.profile.id,
-      name: data.profile.name || data.profile.username,
+      name: data.profile.name || 'Instagram User',
       username: data.profile.username,
       profile_picture_url: data.profile.profile_picture_url
     };
+    
+    return customer;
   } catch (error) {
     console.error('Error fetching Instagram profile:', error);
     return null;
@@ -46,8 +40,9 @@ export async function fetchInstagramProfile(userId: string): Promise<Customer | 
 
 /**
  * Fetch Instagram conversations
+ * @returns Array of Conversation objects
  */
-export async function fetchInstagramConversations(userId: string): Promise<Conversation[]> {
+export async function fetchInstagramConversations(accessToken: string): Promise<Conversation[]> {
   try {
     // Use server-side API route to protect access token
     const response = await fetch('/api/instagram/conversations');
@@ -71,8 +66,9 @@ export async function fetchInstagramConversations(userId: string): Promise<Conve
 
 /**
  * Fetch Instagram messages
+ * @returns Array of Message objects
  */
-export async function fetchInstagramMessages(conversationId: string): Promise<Message[]> {
+export async function fetchInstagramMessages(accessToken: string): Promise<Message[]> {
   try {
     // Use server-side API route to protect access token
     const response = await fetch('/api/instagram/messages');
@@ -96,6 +92,9 @@ export async function fetchInstagramMessages(conversationId: string): Promise<Me
 
 /**
  * Send a message to an Instagram user
+ * @param recipientId ID of the recipient
+ * @param message Message text to send
+ * @returns Response from the API
  */
 export async function sendInstagramMessage(recipientId: string, message: string): Promise<any> {
   try {

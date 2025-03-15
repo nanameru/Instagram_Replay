@@ -44,6 +44,17 @@ export async function GET(
       
       // Make the API request
       const response = await fetch(`${endpoint}?${urlParams}`);
+      const data = await response.json();
+      
+      // Check for specific permission error
+      if (data.error && data.error.code === 298) {
+        console.error('Instagram API permission error: Reading mailbox messages requires the extended permission read_mailbox');
+        return NextResponse.json({ 
+          messages: getMockMessages(conversationId),
+          is_mock: true,
+          error: 'Permission error: Reading mailbox messages requires the extended permission read_mailbox'
+        });
+      }
       
       if (!response.ok) {
         console.error(`Instagram API error: ${response.statusText}`);
@@ -54,8 +65,6 @@ export async function GET(
           error: `Instagram API error: ${response.statusText}`
         });
       }
-      
-      const data = await response.json();
       
       // Transform the response to match our Message type
       const messages: Message[] = [];

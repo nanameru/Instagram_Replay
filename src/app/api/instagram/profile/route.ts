@@ -23,10 +23,10 @@ export async function GET() {
     // Endpoint for profile information
     const endpoint = `${INSTAGRAM_GRAPH_API_BASE}/${API_VERSION}/me`;
     
-    // Parameters for the API request
+    // Parameters for the API request - removed username field which is deprecated
     const params = new URLSearchParams({
       access_token: accessToken,
-      fields: 'id,username,name,profile_picture_url'
+      fields: 'id,name'
     });
     
     try {
@@ -38,9 +38,7 @@ export async function GET() {
         // Fall back to mock data if API fails
         const mockProfile = {
           id: '17841123456789',
-          username: 'example_business',
-          name: 'Example Business',
-          profile_picture_url: 'https://placekitten.com/200/200'
+          name: 'Example Business'
         };
         
         return NextResponse.json({ 
@@ -57,9 +55,7 @@ export async function GET() {
       // Fall back to mock data if API request fails
       const mockProfile = {
         id: '17841123456789',
-        username: 'example_business',
-        name: 'Example Business',
-        profile_picture_url: 'https://placekitten.com/200/200'
+        name: 'Example Business'
       };
       
       return NextResponse.json({ 
