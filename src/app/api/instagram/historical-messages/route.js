@@ -3,17 +3,66 @@
  */
 
 import { getMockMessages } from '../../../lib/client-mock-data';
+import { getValidToken, hasReadMailboxPermission } from '../../../lib/token-manager';
 
 export async function GET(request) {
   try {
-    // Get Instagram access token from environment variables
-    const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+    // Get valid Instagram access token
+    const accessToken = await getValidToken();
     
     if (!accessToken) {
-      return Response.json(
-        { error: { message: 'Instagram access token not configured' } },
-        { status: 500 }
-      );
+      console.warn('No valid Instagram access token available, using mock data');
+      
+      // Get conversation ID from query parameters
+      const { searchParams } = new URL(request.url);
+      const conversationId = searchParams.get('conversation_id') || 'conv_1001';
+      const limit = searchParams.get('limit') || '20';
+      
+      // Return mock data with error information
+      const mockMessages = getMockMessages(conversationId);
+      
+      // Create mock pagination
+      const mockPagination = {
+        next: `/api/instagram/historical-messages?conversation_id=${conversationId}&limit=${limit}&before=${mockMessages[mockMessages.length - 1]?.id}`
+      };
+      
+      return Response.json({
+        messages: mockMessages,
+        is_mock: true,
+        error: { message: 'Instagram access token not configured or invalid' },
+        pagination: mockPagination
+      });
+    }
+    
+    // Check if token has read_mailbox permission
+    const hasReadMailbox = await hasReadMailboxPermission();
+    
+    if (!hasReadMailbox) {
+      console.warn('Token does not have read_mailbox permission, using mock data');
+      
+      // Get conversation ID from query parameters
+      const { searchParams } = new URL(request.url);
+      const conversationId = searchParams.get('conversation_id') || 'conv_1001';
+      const limit = searchParams.get('limit') || '20';
+      
+      // Return mock data with permission error
+      const mockMessages = getMockMessages(conversationId);
+      
+      // Create mock pagination
+      const mockPagination = {
+        next: `/api/instagram/historical-messages?conversation_id=${conversationId}&limit=${limit}&before=${mockMessages[mockMessages.length - 1]?.id}`
+      };
+      
+      return Response.json({
+        messages: mockMessages,
+        is_mock: true,
+        error: { 
+          message: 'Missing read_mailbox permission',
+          code: 298,
+          type: 'OAuthException'
+        },
+        pagination: mockPagination
+      });
     }
     
     // Instagram Graph API base URL
