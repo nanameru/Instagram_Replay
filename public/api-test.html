@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram API Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .test-section {
+      margin-bottom: 30px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 15px;
+    }
+    .test-section h2 {
+      margin-top: 0;
+      color: #444;
+    }
+    button {
+      background-color: #0070f3;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #0051a8;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+    .warning {
+      color: orange;
+      font-weight: bold;
+    }
+    .mock-data {
+      background-color: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Instagram API Test</h1>
+  
+  <div class="test-section">
+    <h2>API Environment Check</h2>
+    <button onclick="testEnvCheck()">Test Environment Variables</button>
+    <pre id="env-result">Results will appear here...</pre>
+  </div>
+  
+  <div class="test-section">
+    <h2>Profile API</h2>
+    <button onclick="testProfileAPI()">Test Profile API</button>
+    <pre id="profile-result">Results will appear here...</pre>
+  </div>
+  
+  <div class="test-section">
+    <h2>Conversations API</h2>
+    <button onclick="testConversationsAPI()">Test Conversations API</button>
+    <pre id="conversations-result">Results will appear here...</pre>
+  </div>
+  
+  <div class="test-section">
+    <h2>Messages API</h2>
+    <button onclick="testMessagesAPI()">Test Messages API</button>
+    <pre id="messages-result">Results will appear here...</pre>
+  </div>
+  
+  <div class="test-section">
+    <h2>API Toggle Test</h2>
+    <button onclick="enableRealAPI()">Enable Real API</button>
+    <button onclick="enableMockData()">Enable Mock Data</button>
+    <pre id="toggle-result">Results will appear here...</pre>
+  </div>
+  
+  <script>
+    async function testEnvCheck() {
+      const resultElement = document.getElementById('env-result');
+      resultElement.innerHTML = 'Testing environment variables...';
+      
+      try {
+        const response = await fetch('/api/env-check');
+        const data = await response.json();
+        
+        if (response.ok) {
+          let result = `<span class="success">Environment check successful!</span>\n\n`;
+          result += `Instagram Access Token: ${data.env_status.instagram_access_token.configured ? '<span class="success">Configured</span>' : '<span class="error">Not Configured</span>'}\n`;
+          result += `Instagram App Token: ${data.env_status.instagram_app_token.configured ? '<span class="success">Configured</span>' : '<span class="error">Not Configured</span>'}\n`;
+          result += `OpenAI API Key: ${data.env_status.openai_api_key.configured ? '<span class="success">Configured</span>' : '<span class="error">Not Configured</span>'}\n`;
+          
+          resultElement.innerHTML = result;
+        } else {
+          resultElement.innerHTML = `<span class="error">Error: ${response.status} ${response.statusText}</span>\n${JSON.stringify(data, null, 2)}`;
+        }
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    }
+    
+    async function testProfileAPI() {
+      const resultElement = document.getElementById('profile-result');
+      resultElement.innerHTML = 'Testing Profile API...';
+      
+      try {
+        const response = await fetch('/api/instagram/profile');
+        const data = await response.json();
+        
+        if (response.ok) {
+          let result = '';
+          
+          if (data.is_mock) {
+            result += `<div class="mock-data">Using mock data: API connection issue or permission error</div>\n\n`;
+          } else {
+            result += `<span class="success">Profile API request successful!</span>\n\n`;
+          }
+          
+          result += `Profile Data:\n${JSON.stringify(data.profile, null, 2)}`;
+          
+          if (data.error) {
+            result += `\n\n<span class="warning">Warning: ${data.error}</span>`;
+          }
+          
+          resultElement.innerHTML = result;
+        } else {
+          resultElement.innerHTML = `<span class="error">Error: ${response.status} ${response.statusText}</span>\n${JSON.stringify(data, null, 2)}`;
+        }
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    }
+    
+    async function testConversationsAPI() {
+      const resultElement = document.getElementById('conversations-result');
+      resultElement.innerHTML = 'Testing Conversations API...';
+      
+      try {
+        const response = await fetch('/api/instagram/conversations');
+        const data = await response.json();
+        
+        if (response.ok) {
+          let result = '';
+          
+          if (data.is_mock) {
+            result += `<div class="mock-data">Using mock data: API connection issue or permission error</div>\n\n`;
+            
+            if (data.error && data.error.includes('read_mailbox')) {
+              result += `<span class="warning">Permission Error: Reading mailbox messages requires the extended permission read_mailbox</span>\n\n`;
+            }
+          } else {
+            result += `<span class="success">Conversations API request successful!</span>\n\n`;
+          }
+          
+          result += `Conversations Count: ${data.conversations ? data.conversations.length : 0}\n\n`;
+          result += `Sample Data:\n${JSON.stringify(data.conversations ? data.conversations.slice(0, 2) : [], null, 2)}`;
+          
+          if (data.error) {
+            result += `\n\n<span class="warning">Warning: ${data.error}</span>`;
+          }
+          
+          resultElement.innerHTML = result;
+        } else {
+          resultElement.innerHTML = `<span class="error">Error: ${response.status} ${response.statusText}</span>\n${JSON.stringify(data, null, 2)}`;
+        }
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    }
+    
+    async function testMessagesAPI() {
+      const resultElement = document.getElementById('messages-result');
+      resultElement.innerHTML = 'Testing Messages API...';
+      
+      try {
+        const response = await fetch('/api/instagram/messages');
+        const data = await response.json();
+        
+        if (response.ok) {
+          let result = '';
+          
+          if (data.is_mock) {
+            result += `<div class="mock-data">Using mock data: API connection issue or permission error</div>\n\n`;
+            
+            if (data.error && data.error.includes('read_mailbox')) {
+              result += `<span class="warning">Permission Error: Reading mailbox messages requires the extended permission read_mailbox</span>\n\n`;
+            }
+          } else {
+            result += `<span class="success">Messages API request successful!</span>\n\n`;
+          }
+          
+          result += `Messages Count: ${data.messages ? data.messages.length : 0}\n\n`;
+          result += `Sample Data:\n${JSON.stringify(data.messages ? data.messages.slice(0, 2) : [], null, 2)}`;
+          
+          if (data.error) {
+            result += `\n\n<span class="warning">Warning: ${data.error}</span>`;
+          }
+          
+          resultElement.innerHTML = result;
+        } else {
+          resultElement.innerHTML = `<span class="error">Error: ${response.status} ${response.statusText}</span>\n${JSON.stringify(data, null, 2)}`;
+        }
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    }
+    
+    function enableRealAPI() {
+      const resultElement = document.getElementById('toggle-result');
+      
+      try {
+        localStorage.setItem('useRealApi', 'true');
+        resultElement.innerHTML = '<span class="success">Real API enabled!</span>\n\nRefresh the page to see the changes.';
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    }
+    
+    function enableMockData() {
+      const resultElement = document.getElementById('toggle-result');
+      
+      try {
+        localStorage.setItem('useRealApi', 'false');
+        resultElement.innerHTML = '<span class="success">Mock data enabled!</span>\n\nRefresh the page to see the changes.';
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    }
+  </script>
+</body>
+</html>
