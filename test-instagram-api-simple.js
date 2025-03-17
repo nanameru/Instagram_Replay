@@ -1,51 +1,70 @@
 /**
- * Simple Instagram API integration test
+ * Simple test script for Instagram API
+ * Tests token validity and Instagram business account access
  */
 
-async function testInstagramAPI() {
-  console.log('=== Instagram API 簡易テスト ===');
-  console.log('テスト開始時刻:', new Date().toLocaleString('ja-JP'));
-  
-  try {
-    // 1. Test: Mock conversations endpoint
-    console.log('\n1. モック会話エンドポイントテスト:');
-    const conversationsResponse = await fetch('http://localhost:3000/api/instagram/conversations');
-    
-    console.log('レスポンスステータス:', conversationsResponse.status);
-    
-    if (!conversationsResponse.ok) {
-      console.log('エラーレスポンス:', await conversationsResponse.text());
-    } else {
-      const conversationsData = await conversationsResponse.json();
-      console.log('モックデータフラグ:', conversationsData.is_mock ? '✅ モックデータ' : '❌ 実データ');
-      console.log('会話数:', conversationsData.data?.length || 0);
-    }
-    
-    // 2. Test: Mock messages endpoint
-    console.log('\n2. モックメッセージエンドポイントテスト:');
-    const messagesResponse = await fetch('http://localhost:3000/api/instagram/messages');
-    
-    console.log('レスポンスステータス:', messagesResponse.status);
-    
-    if (!messagesResponse.ok) {
-      console.log('エラーレスポンス:', await messagesResponse.text());
-    } else {
-      const messagesData = await messagesResponse.json();
-      console.log('モックデータフラグ:', messagesData.is_mock ? '✅ モックデータ' : '❌ 実データ');
-      console.log('メッセージ数:', messagesData.messages?.length || 0);
-    }
-    
-    console.log('\n=== テスト結果サマリー ===');
-    console.log('1. モック会話エンドポイント: ' + (conversationsResponse.ok ? '✅ 成功' : '❌ 失敗'));
-    console.log('2. モックメッセージエンドポイント: ' + (messagesResponse.ok ? '✅ 成功' : '❌ 失敗'));
-    
-  } catch (error) {
-    console.error('\n❌ テスト失敗:', error.message);
-    console.error('エラー詳細:', error);
-  }
-  
-  console.log('\nテスト終了時刻:', new Date().toLocaleString('ja-JP'));
+const fetch = require('node-fetch');
+require('dotenv').config({ path: '.env.local' });
+
+// Get access token from environment variable
+const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+
+if (!accessToken) {
+  console.error('Error: INSTAGRAM_ACCESS_TOKEN not found in .env.local');
+  process.exit(1);
 }
 
-// テスト実行
-testInstagramAPI();
+// Check token validity
+async function checkTokenValidity() {
+  try {
+    console.log('Checking token validity...');
+    
+    const response = await fetch(
+      `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${accessToken}`,
+      { method: 'GET' }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Error validating token:', JSON.stringify(errorData, null, 2));
+      return false;
+    }
+    
+    const data = await response.json();
+    console.log('Token validation response:', JSON.stringify(data, null, 2));
+    
+    if (data.data.is_valid) {
+      console.log('✅ Token is valid');
+      console.log('Token scopes:', data.data.scopes);
+      console.log('Token expires at:', data.data.expires_at ? new Date(data.data.expires_at * 1000).toISOString() : 'Never');
+      return true;
+    } else {
+      console.error('❌ Token is invalid');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error checking token validity:', error);
+    return false;
+  }
+}
+
+// Main function
+async function main() {
+  console.log('=== Instagram API Simple Test ===');
+  console.log('Testing with token:', accessToken.substring(0, 10) + '...' + accessToken.substring(accessToken.length - 10));
+  
+  // Check token validity
+  const isTokenValid = await checkTokenValidity();
+  
+  console.log('\n=== Test Summary ===');
+  console.log(isTokenValid ? '✅ Token is valid' : '❌ Token is invalid');
+  
+  if (!isTokenValid) {
+    console.log('\nRecommendation: Generate a new access token with the required permissions.');
+  }
+}
+
+// Run the main function
+main().catch(error => {
+  console.error('Unhandled error:', error);
+});

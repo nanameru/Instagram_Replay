@@ -8,52 +8,6 @@ import { NextResponse } from 'next/server';
 // Import enhanced mock data
 const enhancedMockData = require('../../../lib/enhanced-mock-data');
 
-// Helper function to get Instagram business account ID
-async function getInstagramBusinessAccount(accessToken) {
-  try {
-    // Get Facebook pages
-    const pagesResponse = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`,
-      { method: 'GET' }
-    );
-    
-    if (!pagesResponse.ok) {
-      const errorData = await pagesResponse.json();
-      throw new Error(`Failed to get Facebook pages: ${JSON.stringify(errorData)}`);
-    }
-    
-    const pagesData = await pagesResponse.json();
-    
-    if (!pagesData.data || pagesData.data.length === 0) {
-      throw new Error('No Facebook pages found');
-    }
-    
-    const pageId = pagesData.data[0].id;
-    
-    // Get Instagram business account connected to this page
-    const igResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${pageId}?fields=instagram_business_account&access_token=${accessToken}`,
-      { method: 'GET' }
-    );
-    
-    if (!igResponse.ok) {
-      const errorData = await igResponse.json();
-      throw new Error(`Failed to get Instagram business account: ${JSON.stringify(errorData)}`);
-    }
-    
-    const igData = await igResponse.json();
-    
-    if (!igData.instagram_business_account) {
-      throw new Error('No Instagram business account found');
-    }
-    
-    return igData.instagram_business_account.id;
-  } catch (error) {
-    console.error('Error getting Instagram business account:', error);
-    throw error;
-  }
-}
-
 export async function GET(request) {
   try {
     // Get access token from environment variable or request header
