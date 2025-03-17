@@ -1,93 +1,155 @@
 /**
- * API route for fetching historical Instagram messages
- * This is a standalone implementation that doesn't rely on external imports
+ * API route for retrieving historical Instagram DMs
+ * Falls back to enhanced mock data when API access fails
  */
 
-export async function GET(request) {
+import { NextResponse } from 'next/server';
+
+// Import enhanced mock data
+const enhancedMockData = require('../../../lib/enhanced-mock-data');
+
+// Helper function to get Instagram business account ID
+async function getInstagramBusinessAccount(accessToken) {
   try {
-    // Get Instagram access token from environment variables
-    const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+    // Get Facebook pages
+    const pagesResponse = await fetch(
+      `https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`,
+      { method: 'GET' }
+    );
     
-    if (!accessToken) {
-      return Response.json(
-        { 
-          error: { 
-            message: 'Instagram アクセストークンが設定されていません', 
-            code: 401 
-          },
-          is_mock: true,
-          messages: generateMockMessages('historical_conv', 15)
-        },
-        { status: 200 }
-      );
+    if (!pagesResponse.ok) {
+      const errorData = await pagesResponse.json();
+      throw new Error(`Failed to get Facebook pages: ${JSON.stringify(errorData)}`);
     }
     
-    // In a real implementation, we would call the Instagram Graph API here
-    // However, the read_mailbox permission is required for this endpoint
-    // This permission is only available to business accounts with specific approvals
+    const pagesData = await pagesResponse.json();
     
-    // For demonstration purposes, we'll return a permission error
-    // This simulates the actual behavior of the Instagram API when permissions are insufficient
-    return Response.json(
-      {
-        error: {
-          message: '権限が不足しています: read_mailbox 権限が必要です',
-          code: 298,
-          type: 'OAuthException'
-        },
-        is_mock: true,
-        messages: generateMockMessages('historical_conv', 15)
-      },
-      { status: 200 }
+    if (!pagesData.data || pagesData.data.length === 0) {
+      throw new Error('No Facebook pages found');
+    }
+    
+    const pageId = pagesData.data[0].id;
+    
+    // Get Instagram business account connected to this page
+    const igResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${pageId}?fields=instagram_business_account&access_token=${accessToken}`,
+      { method: 'GET' }
     );
+    
+    if (!igResponse.ok) {
+      const errorData = await igResponse.json();
+      throw new Error(`Failed to get Instagram business account: ${JSON.stringify(errorData)}`);
+    }
+    
+    const igData = await igResponse.json();
+    
+    if (!igData.instagram_business_account) {
+      throw new Error('No Instagram business account found');
+    }
+    
+    return igData.instagram_business_account.id;
   } catch (error) {
-    console.error('Error fetching historical Instagram messages:', error);
-    
-    return Response.json(
-      { 
-        error: { 
-          message: error.message,
-          code: 500
-        },
-        is_mock: true,
-        messages: []
-      },
-      { status: 500 }
-    );
+    console.error('Error getting Instagram business account:', error);
+    throw error;
   }
 }
 
-/**
- * Generate mock messages for a conversation
- * @param {string} conversationId - The ID of the conversation
- * @param {number} count - Number of messages to generate (default: 10)
- * @returns {Array} Array of mock message objects
- */
-function generateMockMessages(conversationId, count = 10) {
-  // Use conversation ID as seed for consistent data generation
-  const seed = conversationId.replace(/\D/g, '') || '1001';
-  const seedNum = parseInt(seed, 10);
-  
-  const messages = [];
-  
-  const users = [
-    { id: 'user_123', name: 'テストユーザー' },
-    { id: 'page_456', name: 'インスタグラムページ' }
-  ];
-  
-  // Generate mock messages
-  for (let i = 0; i < count; i++) {
-    const messageId = `msg_${seedNum}_${i}`;
-    const fromIndex = (seedNum + i) % 2; // Alternate between users
-    const timestamp = new Date(Date.now() - (i * 3600000)); // 1 hour intervals
+export async function GET(request) {
+  try {
+    // Get access token from environment variable or request header
+    const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN || 
+                        request.headers.get('Authorization')?.replace('Bearer ', '');
     
-    messages.push({
-      id: messageId,
-      from: users[fromIndex],
-      message: `これは過去のテストメッセージ #${count - i} です。会話ID: ${conversationId}`,
-      created_time: timestamp.toISOString()
+    if (!accessToken) {
+      return NextResponse.json(
+        { 
+          error: 'アクセストークンが必要です',
+          isMockData: true,
+          data: enhancedMockData.generateAllConversations()
+        },
+        { status: 401 }
+      );
+    }
+    
+    // Try to get Instagram business account ID
+    try {
+      // Get Facebook pages
+      const pagesResponse = await fetch(
+        `https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`,
+        { method: 'GET' }
+      );
+      
+      if (!pagesResponse.ok) {
+        throw new Error('Failed to get Facebook pages');
+      }
+      
+      const pagesData = await pagesResponse.json();
+      
+      if (!pagesData.data || pagesData.data.length === 0) {
+        throw new Error('No Facebook pages found');
+      }
+      
+      const pageId = pagesData.data[0].id;
+      
+      // Get Instagram business account connected to this page
+      const igResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${pageId}?fields=instagram_business_account&access_token=${accessToken}`,
+        { method: 'GET' }
+      );
+      
+      if (!igResponse.ok) {
+        const errorData = await igResponse.json();
+        console.error('Error getting Instagram business account:', errorData);
+        
+        // Return mock data with error information
+        return NextResponse.json({
+          success: false,
+          error: `Instagram Business Accountの取得に失敗しました: ${JSON.stringify(errorData)}`,
+          isMockData: true,
+          data: enhancedMockData.generateAllConversations()
+        });
+      }
+      
+      const igData = await igResponse.json();
+      
+      if (!igData.instagram_business_account) {
+        // Return mock data with error information
+        return NextResponse.json({
+          success: false,
+          error: 'Instagram Business Accountが連携されていません。ビジネスアカウントの設定を確認してください。',
+          isMockData: true,
+          data: enhancedMockData.generateAllConversations()
+        });
+      }
+      
+      // Return mock data with success information
+      return NextResponse.json({
+        success: true,
+        message: 'Instagram Business Accountが見つかりましたが、現在はモックデータを使用しています。',
+        isMockData: true,
+        data: enhancedMockData.generateAllConversations()
+      });
+      
+    } catch (error) {
+      console.error('Error in API call:', error);
+      
+      // Return enhanced mock data as fallback with error information
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+        isMockData: true,
+        data: enhancedMockData.generateAllConversations()
+      });
+    }
+  } catch (error) {
+    console.error('Error in historical messages API:', error);
+    
+    // Return enhanced mock data as fallback with error information
+    return NextResponse.json({
+      success: false,
+      error: error.message,
+      isMockData: true,
+      data: enhancedMockData.generateAllConversations()
     });
   }
-  
-  return messages;
 }

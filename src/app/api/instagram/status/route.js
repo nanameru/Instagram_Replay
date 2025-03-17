@@ -1,121 +1,75 @@
 /**
  * API route for checking Instagram API status
+ * Provides detailed information about token validity and permissions
  */
 
-import { getTokenInfo, hasReadMailboxPermission } from '../../../lib/token-manager.js';
+import { NextResponse } from 'next/server';
+
+// Check token validity
+async function checkTokenValidity(accessToken) {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${accessToken}`,
+      { method: 'GET' }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        valid: false,
+        error: errorData,
+        message: '無効なアクセストークンです。'
+      };
+    }
+    
+    const data = await response.json();
+    return {
+      valid: data.data.is_valid,
+      type: data.data.type,
+      scopes: data.data.scopes || [],
+      expiresAt: data.data.expires_at ? new Date(data.data.expires_at * 1000).toISOString() : null,
+      dataAccessExpiresAt: data.data.data_access_expires_at ? new Date(data.data.data_access_expires_at * 1000).toISOString() : null,
+      message: data.data.is_valid ? 'アクセストークンは有効です。' : 'アクセストークンは無効です。'
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      error: error.message,
+      message: 'トークン検証中にエラーが発生しました。'
+    };
+  }
+}
 
 export async function GET(request) {
   try {
-    // Get Instagram access token from environment variables
-    const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+    // Get access token from environment variable or request header
+    const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN || 
+                        request.headers.get('Authorization')?.replace('Bearer ', '');
     
     if (!accessToken) {
-      return Response.json({
-        status: "error",
-        error: "Instagram access token not configured",
-        token_type: null,
-        has_instagram_business_account: false,
-        has_read_mailbox_permission: false
-      });
+      return NextResponse.json({
+        status: 'error',
+        message: 'アクセストークンが必要です。',
+        timestamp: new Date().toISOString()
+      }, { status: 401 });
     }
     
-    // Get token information
-    const tokenInfo = await getTokenInfo();
+    // Check token validity
+    const tokenStatus = await checkTokenValidity(accessToken);
     
-    // Check if token has read_mailbox permission
-    const hasReadMailbox = await hasReadMailboxPermission();
-    
-    // Instagram Graph API base URL
-    const INSTAGRAM_GRAPH_API_BASE = 'https://graph.facebook.com';
-    const API_VERSION = 'v18.0';
-    
-    // Check profile access
-    let profileStatus = { available: false, data: null, error: null };
-    try {
-      const profileResponse = await fetch(`${INSTAGRAM_GRAPH_API_BASE}/${API_VERSION}/me?fields=id,name,instagram_business_account&access_token=${accessToken}`);
-      const profileData = await profileResponse.json();
-      
-      if (profileResponse.ok) {
-        profileStatus = {
-          available: true,
-          data: profileData,
-          error: null
-        };
-      } else {
-        profileStatus = {
-          available: false,
-          data: null,
-          error: profileData.error
-        };
-      }
-    } catch (error) {
-      profileStatus = {
-        available: false,
-        data: null,
-        error: { message: error.message }
-      };
-    }
-    
-    // Check conversations access
-    let conversationsStatus = { available: false, data: null, error: null };
-    try {
-      const conversationsResponse = await fetch(`${INSTAGRAM_GRAPH_API_BASE}/${API_VERSION}/me/conversations?fields=participants&access_token=${accessToken}`);
-      const conversationsData = await conversationsResponse.json();
-      
-      if (conversationsResponse.ok) {
-        conversationsStatus = {
-          available: true,
-          data: conversationsData,
-          error: null
-        };
-      } else {
-        conversationsStatus = {
-          available: false,
-          data: null,
-          error: conversationsData.error
-        };
-      }
-    } catch (error) {
-      conversationsStatus = {
-        available: false,
-        data: null,
-        error: { message: error.message }
-      };
-    }
-    
-    // Determine token type
-    let tokenType = "unknown";
-    if (tokenInfo.type) {
-      tokenType = tokenInfo.type;
-    } else if (profileStatus.data?.instagram_business_account) {
-      tokenType = "page_access_token";
-    } else {
-      tokenType = "user_access_token";
-    }
-    
-    // Determine if we have an Instagram business account
-    const hasInstagramBusinessAccount = 
-      profileStatus.available && 
-      profileStatus.data?.instagram_business_account !== undefined;
-    
-    return Response.json({
-      status: "ok",
-      profile: profileStatus,
-      conversations: conversationsStatus,
-      token_info: tokenInfo,
-      token_type: tokenType,
-      has_instagram_business_account: hasInstagramBusinessAccount,
-      has_read_mailbox_permission: hasReadMailbox
+    return NextResponse.json({
+      status: tokenStatus.valid ? 'ok' : 'error',
+      message: tokenStatus.message,
+      tokenStatus: tokenStatus,
+      timestamp: new Date().toISOString()
     });
-  } catch (error) {
-    console.error('Error checking Instagram API status:', error);
     
-    return Response.json({
-      status: "error",
+  } catch (error) {
+    return NextResponse.json({
+      status: 'error',
+      message: 'APIステータスの確認中にエラーが発生しました。',
       error: error.message,
-      token_type: null,
-      has_instagram_business_account: false,
-      has_read_mailbox_permission: false
+      timestamp: new Date().toISOString()
     }, { status: 500 });
   }
 }
