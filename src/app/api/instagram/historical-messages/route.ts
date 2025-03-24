@@ -1,6 +1,7 @@
 /**
  * Enhanced API endpoint for retrieving historical Instagram DMs (TypeScript version)
  * Includes robust token validation, permission checking, and fallback to mock data
+ * With multiple API access approaches to handle different account configurations
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -84,63 +85,131 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }));
     }
     
-    // Get Facebook pages
-    const pagesResponse = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`,
+    // Get user info first instead of directly trying to access Facebook pages
+    const meResponse = await fetch(
+      `https://graph.facebook.com/v18.0/me?access_token=${accessToken}`,
       { method: 'GET' }
     );
     
-    if (!pagesResponse.ok) {
-      const errorData = await pagesResponse.json();
-      console.log('Error getting Facebook pages:', errorData);
+    if (!meResponse.ok) {
+      const errorData = await meResponse.json();
+      console.log('Error getting user info:', errorData);
       return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
-        error: 'Facebookページの取得に失敗しました。',
+        error: 'ユーザー情報の取得に失敗しました。',
         code: errorData.error?.code || 500,
         details: errorData
       }));
     }
     
-    const pagesData = await pagesResponse.json();
-    if (!pagesData.data || pagesData.data.length === 0) {
-      console.log('No Facebook pages found');
-      return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
-        error: 'Facebookページが見つかりません。ビジネスアカウントを設定してください。',
-        code: 'NO_PAGES'
-      }));
+    const meData = await meResponse.json();
+    const userId = meData.id;
+    
+    // Try multiple approaches to get Instagram business account
+    let igBusinessAccountId: string | null = null;
+    let pageAccessToken: string = accessToken;
+    let errorDetails: any = null;
+    
+    // Approach 1: Try to get Instagram business account directly
+    try {
+      const igBusinessResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${userId}/instagram_business_account?access_token=${accessToken}`,
+        { method: 'GET' }
+      );
+      
+      if (igBusinessResponse.ok) {
+        const igBusinessData = await igBusinessResponse.json();
+        if (igBusinessData.data && igBusinessData.data.length > 0) {
+          igBusinessAccountId = igBusinessData.data[0].id;
+          console.log('Found Instagram business account using direct approach:', igBusinessAccountId);
+        }
+      } else {
+        const error = await igBusinessResponse.json();
+        console.log('Direct approach failed:', error);
+        errorDetails = error;
+      }
+    } catch (error) {
+      console.log('Error in direct approach:', error);
     }
     
-    // Get Instagram Business Account
-    const pageId = pagesData.data[0].id;
-    const pageAccessToken = pagesData.data[0].access_token;
-    
-    const igAccountResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${pageId}?fields=instagram_business_account&access_token=${pageAccessToken}`,
-      { method: 'GET' }
-    );
-    
-    if (!igAccountResponse.ok) {
-      const errorData = await igAccountResponse.json();
-      console.log('Error getting Instagram Business Account:', errorData);
-      return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
-        error: 'Instagramビジネスアカウントの取得に失敗しました。',
-        code: errorData.error?.code || 500,
-        details: errorData
-      }));
+    // Approach 2: Try older API version to get Facebook pages
+    if (!igBusinessAccountId) {
+      try {
+        const apiVersions = ['v17.0', 'v16.0', 'v15.0', 'v14.0'];
+        
+        for (const version of apiVersions) {
+          const pagesResponse = await fetch(
+            `https://graph.facebook.com/${version}/me/accounts?access_token=${accessToken}`,
+            { method: 'GET' }
+          );
+          
+          if (pagesResponse.ok) {
+            const pagesData = await pagesResponse.json();
+            
+            if (pagesData.data && pagesData.data.length > 0) {
+              const pageId = pagesData.data[0].id;
+              pageAccessToken = pagesData.data[0].access_token || accessToken;
+              
+              const igAccountResponse = await fetch(
+                `https://graph.facebook.com/${version}/${pageId}?fields=instagram_business_account&access_token=${pageAccessToken}`,
+                { method: 'GET' }
+              );
+              
+              if (igAccountResponse.ok) {
+                const igAccountData = await igAccountResponse.json();
+                
+                if (igAccountData.instagram_business_account) {
+                  igBusinessAccountId = igAccountData.instagram_business_account.id;
+                  console.log('Found Instagram business account using API version', version, ':', igBusinessAccountId);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.log('Error in older API version approach:', error);
+      }
     }
     
-    const igAccountData = await igAccountResponse.json();
-    if (!igAccountData.instagram_business_account) {
-      console.log('No Instagram Business Account found');
+    // Approach 3: Try alternative endpoints
+    if (!igBusinessAccountId) {
+      try {
+        const instagramAccountsResponse = await fetch(
+          `https://graph.facebook.com/v18.0/me/instagram_accounts?access_token=${accessToken}`,
+          { method: 'GET' }
+        );
+        
+        if (instagramAccountsResponse.ok) {
+          const instagramAccountsData = await instagramAccountsResponse.json();
+          
+          if (instagramAccountsData.data && instagramAccountsData.data.length > 0) {
+            igBusinessAccountId = instagramAccountsData.data[0].id;
+            console.log('Found Instagram account using instagram_accounts endpoint:', igBusinessAccountId);
+          }
+        } else {
+          const error = await instagramAccountsResponse.json();
+          console.log('Instagram accounts approach failed:', error);
+          errorDetails = errorDetails || error;
+        }
+      } catch (error) {
+        console.log('Error in instagram_accounts approach:', error);
+      }
+    }
+    
+    // If we still don't have an Instagram business account ID, fall back to mock data
+    if (!igBusinessAccountId) {
+      console.log('Could not find Instagram business account, falling back to mock data');
       return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
         error: 'Instagramビジネスアカウントが見つかりません。ビジネスアカウントを設定してください。',
-        code: 'NO_IG_ACCOUNT'
+        code: 'NO_IG_ACCOUNT',
+        details: errorDetails
       }));
     }
     
-    const igAccountId = igAccountData.instagram_business_account.id;
+    // Now we have an Instagram business account ID, we can proceed with getting conversations/messages
     
     // Try to get historical messages
-    let apiUrl = `https://graph.facebook.com/v18.0/${igAccountId}/conversations`;
+    let apiUrl = `https://graph.facebook.com/v18.0/${igBusinessAccountId}/conversations`;
     
     // If no specific conversation ID is provided, get all conversations first
     if (!conversationId) {

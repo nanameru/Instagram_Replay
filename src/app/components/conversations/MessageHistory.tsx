@@ -34,6 +34,7 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
+  const [responseData, setResponseData] = useState<any>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -55,6 +56,7 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
     try {
       setLoading(true);
       setError(null);
+      setResponseData(null);
       
       // Use the enhanced API endpoint for historical messages
       const response = await fetch(`/api/instagram/historical-messages?conversation_id=${conversationId}&limit=20`);
@@ -64,6 +66,9 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
       }
       
       const data = await response.json();
+      
+      // Store the full response data for error details
+      setResponseData(data);
       
       setMessages(data.messages || []);
       setIsMockData(data.is_mock_data || false);
@@ -99,6 +104,9 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
       }
       
       const data = await response.json();
+      
+      // Store the full response data for error details
+      setResponseData(data);
       
       // Append older messages to the existing messages
       setMessages(prevMessages => [...prevMessages, ...(data.messages || [])]);
@@ -189,9 +197,20 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
           <p className="font-medium">モックデータを表示しています</p>
           <p className="text-xs mt-1">
             Instagram APIの権限制限により、実際のDMデータにアクセスできません。
-            完全なDM履歴を取得するには、Instagram ビジネスアカウントと read_mailbox 権限が必要です。
+            完全なDM履歴を取得するには、Instagram ビジネスアカウントと instagram_manage_messages 権限が必要です。
             詳細は「設定」ページをご確認ください。
           </p>
+          {responseData?.error?.code && (
+            <div className="mt-2 text-xs">
+              <p className="font-medium">エラーコード: {responseData.error.code}</p>
+              <a 
+                href="/settings/permissions" 
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                権限設定ガイドを確認する
+              </a>
+            </div>
+          )}
         </div>
       )}
       
@@ -208,6 +227,14 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
                 トークン更新ページへ移動
               </a>
             </div>
+          )}
+          {responseData?.error?.details && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs font-medium">詳細情報を表示</summary>
+              <pre className="text-xs mt-2 bg-red-100 p-2 rounded overflow-auto max-h-40">
+                {JSON.stringify(responseData.error.details, null, 2)}
+              </pre>
+            </details>
           )}
         </div>
       )}
