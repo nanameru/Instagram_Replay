@@ -14,8 +14,11 @@ interface Message {
     id: string;
     name?: string;
   };
-  message: string;
-  created_time: string;
+  message?: string;  // For backward compatibility
+  content?: string;  // For new API format
+  created_time?: string;  // For backward compatibility
+  timestamp?: string;  // For new API format
+  isRead?: boolean;
 }
 
 interface MessageHistoryProps {
@@ -53,7 +56,7 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
       setLoading(true);
       setError(null);
       
-      // Use the correct API endpoint for historical messages
+      // Use the enhanced API endpoint for historical messages
       const response = await fetch(`/api/instagram/historical-messages?conversation_id=${conversationId}&limit=20`);
       
       if (!response.ok) {
@@ -63,9 +66,14 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
       const data = await response.json();
       
       setMessages(data.messages || []);
-      setIsMockData(data.is_mock || false);
-      setHasMore(!!(data.pagination && data.pagination.next));
-      setNextPageToken(data.pagination?.next || null);
+      setIsMockData(data.is_mock_data || false);
+      setHasMore(!!(data.paging && data.paging.next));
+      setNextPageToken(data.paging?.next || null);
+      
+      // Display error if present in the response
+      if (data.error) {
+        setError(`${data.error.error || data.error.message || '不明なエラー'} ${data.error.code ? `(コード: ${data.error.code})` : ''}`);
+      }
       
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -94,8 +102,13 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
       
       // Append older messages to the existing messages
       setMessages(prevMessages => [...prevMessages, ...(data.messages || [])]);
-      setHasMore(!!(data.pagination && data.pagination.next));
-      setNextPageToken(data.pagination?.next || null);
+      setHasMore(!!(data.paging && data.paging.next));
+      setNextPageToken(data.paging?.next || null);
+      
+      // Display error if present in the response
+      if (data.error) {
+        setError(`${data.error.error || data.error.message || '不明なエラー'} ${data.error.code ? `(コード: ${data.error.code})` : ''}`);
+      }
       
     } catch (error) {
       console.error('Error loading more messages:', error);
@@ -176,8 +189,16 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
           <p className="font-medium">モックデータを表示しています</p>
           <p className="text-xs mt-1">
             Instagram APIの権限制限により、実際のDMデータにアクセスできません。
-            完全なDM履歴を取得するには、read_mailbox権限が必要です。
+            完全なDM履歴を取得するには、Instagram ビジネスアカウントと read_mailbox 権限が必要です。
+            詳細は「設定」ページをご確認ください。
           </p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-3 text-red-800 text-sm mb-4">
+          <p className="font-medium">エラーが発生しました</p>
+          <p className="text-xs mt-1">{error}</p>
         </div>
       )}
       
@@ -224,9 +245,9 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
                   </Badge>
                 )}
               </div>
-              <p className="whitespace-pre-wrap">{message.message}</p>
+              <p className="whitespace-pre-wrap">{message.content || message.message}</p>
               <div className="text-xs opacity-70 mt-1 text-right">
-                {formatMessageDate(message.created_time)}
+                {formatMessageDate(message.timestamp || message.created_time)}
               </div>
             </div>
           </div>

@@ -1,11 +1,46 @@
 /**
- * Enhanced API endpoint for retrieving historical Instagram DMs
+ * Enhanced API endpoint for retrieving historical Instagram DMs (TypeScript version)
  * Includes robust token validation, permission checking, and fallback to mock data
  */
 
+import { NextRequest, NextResponse } from 'next/server';
 const { generateJapaneseConversation } = require('../../../lib/enhanced-mock-data');
 
-export async function GET(request) {
+// Define interfaces for type safety
+interface MessageSender {
+  id: string;
+  name: string;
+}
+
+interface Message {
+  id: string;
+  from: MessageSender;
+  content: string;
+  timestamp: string;
+  isRead: boolean;
+}
+
+interface Paging {
+  previous: string | null;
+  next: string | null;
+}
+
+interface ErrorInfo {
+  error: string;
+  code: number | string;
+  details?: any;
+  message?: string;
+}
+
+interface ApiResponse {
+  messages?: Message[];
+  conversations?: any[];
+  paging: Paging;
+  is_mock_data: boolean;
+  error?: ErrorInfo;
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // Extract query parameters
     const url = new URL(request.url);
@@ -16,7 +51,7 @@ export async function GET(request) {
     
     // Check if this is a mock conversation ID (starts with 'conv_')
     if (conversationId && conversationId.startsWith('conv_')) {
-      return Response.json(handleMockConversation(conversationId, before, after, limit));
+      return NextResponse.json(handleMockConversation(conversationId, before, after, limit));
     }
     
     // Get access token from environment or request header
@@ -25,7 +60,7 @@ export async function GET(request) {
     
     if (!accessToken) {
       console.log('No access token provided, falling back to mock data');
-      return Response.json(handleMockConversation(conversationId, before, after, limit, {
+      return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
         error: 'アクセストークンが必要です',
         code: 'NO_TOKEN'
       }));
@@ -35,7 +70,7 @@ export async function GET(request) {
     const isTokenValid = await validateToken(accessToken);
     if (!isTokenValid) {
       console.log('Invalid or expired token, falling back to mock data');
-      return Response.json(handleMockConversation(conversationId, before, after, limit, {
+      return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
         error: 'トークンが無効または期限切れです。新しいトークンを取得してください。',
         code: 190
       }));
@@ -50,7 +85,7 @@ export async function GET(request) {
     if (!pagesResponse.ok) {
       const errorData = await pagesResponse.json();
       console.log('Error getting Facebook pages:', errorData);
-      return Response.json(handleMockConversation(conversationId, before, after, limit, {
+      return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
         error: 'Facebookページの取得に失敗しました。',
         code: errorData.error?.code || 500,
         details: errorData
@@ -60,7 +95,7 @@ export async function GET(request) {
     const pagesData = await pagesResponse.json();
     if (!pagesData.data || pagesData.data.length === 0) {
       console.log('No Facebook pages found');
-      return Response.json(handleMockConversation(conversationId, before, after, limit, {
+      return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
         error: 'Facebookページが見つかりません。ビジネスアカウントを設定してください。',
         code: 'NO_PAGES'
       }));
@@ -78,7 +113,7 @@ export async function GET(request) {
     if (!igAccountResponse.ok) {
       const errorData = await igAccountResponse.json();
       console.log('Error getting Instagram Business Account:', errorData);
-      return Response.json(handleMockConversation(conversationId, before, after, limit, {
+      return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
         error: 'Instagramビジネスアカウントの取得に失敗しました。',
         code: errorData.error?.code || 500,
         details: errorData
@@ -88,7 +123,7 @@ export async function GET(request) {
     const igAccountData = await igAccountResponse.json();
     if (!igAccountData.instagram_business_account) {
       console.log('No Instagram Business Account found');
-      return Response.json(handleMockConversation(conversationId, before, after, limit, {
+      return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
         error: 'Instagramビジネスアカウントが見つかりません。ビジネスアカウントを設定してください。',
         code: 'NO_IG_ACCOUNT'
       }));
@@ -112,14 +147,14 @@ export async function GET(request) {
         
         // Check if this is a permission error (code 298)
         if (errorData.error?.code === 298) {
-          return Response.json(handleMockConversation(conversationId, before, after, limit, {
+          return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
             error: '必要な権限がありません。instagram_manage_messages権限が必要です。',
             code: 298,
             details: errorData
           }));
         }
         
-        return Response.json(handleMockConversation(conversationId, before, after, limit, {
+        return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
           error: '会話リストの取得に失敗しました。',
           code: errorData.error?.code || 500,
           details: errorData
@@ -129,7 +164,7 @@ export async function GET(request) {
       const conversationsData = await conversationsResponse.json();
       
       // Return list of conversations
-      return Response.json({
+      return NextResponse.json({
         conversations: conversationsData.data,
         paging: conversationsData.paging,
         is_mock_data: false
@@ -153,14 +188,14 @@ export async function GET(request) {
       
       // Check if this is a permission error (code 298)
       if (errorData.error?.code === 298) {
-        return Response.json(handleMockConversation(conversationId, before, after, limit, {
+        return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
           error: '必要な権限がありません。read_mailbox権限が必要です。',
           code: 298,
           details: errorData
         }));
       }
       
-      return Response.json(handleMockConversation(conversationId, before, after, limit, {
+      return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
         error: 'メッセージの取得に失敗しました。',
         code: errorData.error?.code || 500,
         details: errorData
@@ -170,7 +205,7 @@ export async function GET(request) {
     const messagesData = await messagesResponse.json();
     
     // Format the response
-    const formattedMessages = messagesData.data.map(message => ({
+    const formattedMessages: Message[] = messagesData.data.map((message: any) => ({
       id: message.id,
       from: {
         id: message.from.id,
@@ -182,20 +217,20 @@ export async function GET(request) {
     }));
     
     // Add pagination links
-    const paging = {
+    const paging: Paging = {
       previous: messagesData.paging?.previous ? `?conversation_id=${conversationId}&before=${messagesData.paging.cursors.before}` : null,
       next: messagesData.paging?.next ? `?conversation_id=${conversationId}&after=${messagesData.paging.cursors.after}` : null
     };
     
-    return Response.json({
+    return NextResponse.json({
       messages: formattedMessages,
       paging,
       is_mock_data: false
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Unhandled error in historical-messages API:', error);
-    return Response.json(handleMockConversation(null, null, null, 20, {
+    return NextResponse.json(handleMockConversation(null, null, null, 20, {
       error: '予期せぬエラーが発生しました。',
       code: 'UNHANDLED_ERROR',
       message: error.message
@@ -204,7 +239,7 @@ export async function GET(request) {
 }
 
 // Helper function to validate token
-async function validateToken(token) {
+async function validateToken(token: string): Promise<boolean> {
   try {
     const response = await fetch(
       `https://graph.facebook.com/debug_token?input_token=${token}&access_token=${token}`,
@@ -224,13 +259,21 @@ async function validateToken(token) {
 }
 
 // Helper function to handle mock conversation
-function handleMockConversation(conversationId, before, after, limit, errorInfo = null) {
+function handleMockConversation(
+  conversationId: string | null, 
+  before: string | null, 
+  after: string | null, 
+  limit: number, 
+  errorInfo: ErrorInfo | null = null
+): ApiResponse {
   // Generate mock conversation data
   const mockConversation = generateJapaneseConversation(conversationId || 'customer-1');
-  const allMessages = mockConversation.messages;
+  const allMessages: Message[] = mockConversation.messages;
   
   // Sort messages by timestamp (newest first)
-  allMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  allMessages.sort((a: Message, b: Message) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
   
   // Implement pagination
   let startIndex = 0;
@@ -246,12 +289,14 @@ function handleMockConversation(conversationId, before, after, limit, errorInfo 
   const paginatedMessages = allMessages.slice(startIndex, endIndex);
   
   // Add pagination links
-  const paging = {
-    previous: startIndex > 0 ? `?conversation_id=${conversationId}&before=${paginatedMessages[0].id}` : null,
-    next: endIndex < allMessages.length ? `?conversation_id=${conversationId}&after=${paginatedMessages[paginatedMessages.length - 1].id}` : null
+  const paging: Paging = {
+    previous: startIndex > 0 && paginatedMessages.length > 0 ? 
+      `?conversation_id=${conversationId}&before=${paginatedMessages[0].id}` : null,
+    next: endIndex < allMessages.length && paginatedMessages.length > 0 ? 
+      `?conversation_id=${conversationId}&after=${paginatedMessages[paginatedMessages.length - 1].id}` : null
   };
   
-  const response = {
+  const response: ApiResponse = {
     messages: paginatedMessages,
     paging,
     is_mock_data: true
