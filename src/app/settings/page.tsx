@@ -1,6 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import ApiStatus from './api-status';
+import TokenStatus from './token-status';
 
 export const metadata: Metadata = {
   title: '設定 | Instagram DM ダッシュボード',
@@ -20,9 +21,12 @@ export default function SettingsPage() {
         
         <section>
           <h2 className="text-xl font-semibold mb-4">アクセストークン</h2>
+          <div className="mb-4">
+            <TokenStatus />
+          </div>
           <p className="text-muted-foreground mb-4">
             Instagram APIアクセストークンは環境変数として設定されています。
-            トークンを更新するには、<code>.env.local</code>ファイルを編集してください。
+            トークンを更新するには、<code>.env.local</code>ファイルを編集するか、トークン更新ページを使用してください。
           </p>
           <div className="bg-muted p-4 rounded-md">
             <p className="text-sm font-mono">
@@ -32,6 +36,7 @@ export default function SettingsPage() {
           </div>
           <p className="text-sm text-muted-foreground mt-2">
             詳細な手順は<a href="/settings/permissions" className="text-primary underline">権限設定ガイド</a>を参照してください。
+            トークンが期限切れの場合は<a href="/settings/token-renewal" className="text-primary underline">トークン更新ページ</a>にアクセスしてください。
           </p>
         </section>
       </div>

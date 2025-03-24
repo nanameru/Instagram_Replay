@@ -30,6 +30,7 @@ interface ErrorInfo {
   code: number | string;
   details?: any;
   message?: string;
+  renewal_guide?: string | null;
 }
 
 interface ApiResponse {
@@ -66,13 +67,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }));
     }
     
-    // Validate token
-    const isTokenValid = await validateToken(accessToken);
-    if (!isTokenValid) {
-      console.log('Invalid or expired token, falling back to mock data');
+    // Validate token and check if it's expired
+    const tokenValidation = await validateToken(accessToken);
+    
+    if (!tokenValidation.isValid) {
+      // Check if token is expired
+      const isExpired = tokenValidation.error?.code === 190;
+      
+      // Return mock data with specific error for expired token
       return NextResponse.json(handleMockConversation(conversationId, before, after, limit, {
-        error: 'トークンが無効または期限切れです。新しいトークンを取得してください。',
-        code: 190
+        error: isExpired 
+          ? 'アクセストークンが期限切れです。新しいトークンを取得するか、設定ページでトークンを更新してください。' 
+          : tokenValidation.error?.message || 'トークンが無効です。',
+        code: tokenValidation.error?.code || 400,
+        renewal_guide: isExpired ? '/settings/token-renewal' : null
       }));
     }
     
@@ -239,22 +247,56 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 }
 
 // Helper function to validate token
-async function validateToken(token: string): Promise<boolean> {
+async function validateToken(token: string): Promise<{ isValid: boolean; error?: { code: number; message: string } }> {
   try {
     const response = await fetch(
       `https://graph.facebook.com/debug_token?input_token=${token}&access_token=${token}`,
       { method: 'GET' }
     );
     
+    const data = await response.json();
+    
     if (!response.ok) {
-      return false;
+      return { 
+        isValid: false, 
+        error: { 
+          code: response.status, 
+          message: data.error?.message || 'トークンの検証に失敗しました' 
+        } 
+      };
     }
     
-    const data = await response.json();
-    return data.data?.is_valid === true;
-  } catch (error) {
+    if (!data.data || !data.data.is_valid) {
+      // Check if this is an expired token (code 190)
+      if (data.error?.code === 190 || (data.data && data.data.error && data.data.error.code === 190)) {
+        return { 
+          isValid: false, 
+          error: { 
+            code: 190, 
+            message: 'アクセストークンが期限切れです' 
+          } 
+        };
+      }
+      
+      return { 
+        isValid: false, 
+        error: { 
+          code: data.error?.code || 400, 
+          message: data.error?.message || 'トークンが無効です' 
+        } 
+      };
+    }
+    
+    return { isValid: true };
+  } catch (error: any) {
     console.error('Error validating token:', error);
-    return false;
+    return { 
+      isValid: false, 
+      error: { 
+        code: 500, 
+        message: error.message || 'トークン検証中にエラーが発生しました' 
+      } 
+    };
   }
 }
 
@@ -305,6 +347,11 @@ function handleMockConversation(
   // Add error info if provided
   if (errorInfo) {
     response.error = errorInfo;
+    
+    // Add renewal guide link for expired tokens
+    if (errorInfo.code === 190) {
+      response.error.renewal_guide = '/settings/token-renewal';
+    }
   }
   
   return response;

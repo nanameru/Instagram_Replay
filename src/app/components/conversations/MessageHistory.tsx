@@ -199,6 +199,16 @@ export default function MessageHistory({ conversationId, profileId }: MessageHis
         <div className="bg-red-50 border border-red-200 rounded-md p-3 text-red-800 text-sm mb-4">
           <p className="font-medium">エラーが発生しました</p>
           <p className="text-xs mt-1">{error}</p>
+          {error.includes('アクセストークンが期限切れ') && (
+            <div className="mt-2">
+              <a 
+                href="/settings/token-renewal" 
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                トークン更新ページへ移動
+              </a>
+            </div>
+          )}
         </div>
       )}
       

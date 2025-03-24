@@ -36,9 +36,31 @@ export async function getValidToken() {
       return currentToken;
     }
     
-    // Token is invalid, try to refresh (in a real app)
-    // For now, just log the error
-    console.error('Instagram token is invalid:', data.error);
+    // Token is invalid, try to refresh
+    console.warn('Instagram token is invalid or expired, attempting to refresh...');
+    const refreshResult = await refreshToken();
+    
+    if (refreshResult.success && refreshResult.token) {
+      console.log('Token refreshed successfully');
+      // In a production app, we would update the environment variable
+      // For now, we'll just update the cache
+      cachedToken = refreshResult.token;
+      
+      // Check the new token's expiration
+      const newTokenResponse = await fetch(`https://graph.facebook.com/debug_token?input_token=${refreshResult.token}&access_token=${refreshResult.token}`);
+      const newTokenData = await newTokenResponse.json();
+      
+      if (newTokenResponse.ok && newTokenData.data && newTokenData.data.expires_at) {
+        tokenExpiration = newTokenData.data.expires_at * 1000;
+      } else {
+        // Default to 60 days if we can't determine expiration
+        tokenExpiration = Date.now() + (60 * 24 * 60 * 60 * 1000);
+      }
+      
+      return refreshResult.token;
+    }
+    
+    console.error('Instagram token is invalid and could not be refreshed:', data.error);
     return null;
   } catch (error) {
     console.error('Error checking token validity:', error);
@@ -108,4 +130,40 @@ export async function getTokenInfo() {
  */
 export async function hasReadMailboxPermission() {
   return hasPermission('read_mailbox');
+}
+
+/**
+ * Attempt to refresh the access token
+ * @returns {Promise<{success: boolean, token?: string, error?: string}>} Result of the refresh attempt
+ */
+export async function refreshToken() {
+  const currentToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const appId = process.env.INSTAGRAM_APP_ID;
+  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+  
+  if (!currentToken) {
+    return { success: false, error: 'No token configured' };
+  }
+  
+  if (!appId || !appSecret) {
+    return { success: false, error: 'App ID or App Secret not configured' };
+  }
+  
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${currentToken}`
+    );
+    
+    const data = await response.json();
+    
+    if (data.access_token) {
+      // In a production app, you would save this token to a secure storage
+      // For now, we'll just return it
+      return { success: true, token: data.access_token };
+    }
+    
+    return { success: false, error: data.error?.message || 'Failed to refresh token' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 }
